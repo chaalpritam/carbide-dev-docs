@@ -1,0 +1,22 @@
+{
+  "name": "carbide-network-docs",
+  "version": "1.0.0",
+  "description": "Carbide Network Documentation Website",
+  "scripts": {
+    "dev": "npx serve . -p 8000",
+    "start": "npx serve . -p 8000",
+    "deploy:netlify": "netlify deploy --prod --dir=.",
+    "deploy:vercel": "vercel --prod"
+  },
+  "keywords": [
+    "carbide",
+    "decentralized",
+    "storage",
+    "documentation"
+  ],
+  "author": "Carbide Team",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

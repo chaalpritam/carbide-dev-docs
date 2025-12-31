@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbide Network - Documentation</title>
+    <meta name="description" content="Comprehensive developer documentation for the Carbide decentralized storage network">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💎</text></svg>">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+    <!-- Code highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">💎</span>
+                <span class="logo-text">Carbide Network</span>
+            </div>
+            <nav class="header-nav">
+                <a href="https://github.com/carbide" target="_blank" class="nav-link">GitHub</a>
+                <a href="#" class="nav-link" onclick="loadDoc('OVERVIEW'); return false;">Docs</a>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-content">
+                <div class="search-box">
+                    <input type="text" id="search" placeholder="Search documentation..." class="search-input">
+                    <span class="search-icon">🔍</span>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <div class="nav-section">
+                        <h3 class="nav-section-title">Getting Started</h3>
+                        <ul class="nav-list">
+                            <li><a href="#" onclick="loadDoc('OVERVIEW'); return false;" class="nav-item active" data-doc="OVERVIEW">
+                                <span class="nav-icon">📖</span> Overview
+                            </a></li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h3 class="nav-section-title">Components</h3>
+                        <ul class="nav-list">
+                            <li><a href="#" onclick="loadDoc('PROVIDER_NODE'); return false;" class="nav-item" data-doc="PROVIDER_NODE">
+                                <span class="nav-icon">🖥️</span> Provider Node
+                            </a></li>
+                            <li><a href="#" onclick="loadDoc('DISCOVERY_SERVICE'); return false;" class="nav-item" data-doc="DISCOVERY_SERVICE">
+                                <span class="nav-icon">🌐</span> Discovery Service
+                            </a></li>
+                            <li><a href="#" onclick="loadDoc('IOS_SDK'); return false;" class="nav-item" data-doc="IOS_SDK">
+                                <span class="nav-icon">📱</span> iOS SDK
+                            </a></li>
+                            <li><a href="#" onclick="loadDoc('CLIENT_APPS'); return false;" class="nav-item" data-doc="CLIENT_APPS">
+                                <span class="nav-icon">💻</span> Client Apps
+                            </a></li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h3 class="nav-section-title">Quick Links</h3>
+                        <ul class="nav-list">
+                            <li><a href="#installation" class="nav-item">
+                                <span class="nav-icon">⚡</span> Quick Start
+                            </a></li>
+                            <li><a href="#api-reference" class="nav-item">
+                                <span class="nav-icon">📚</span> API Reference
+                            </a></li>
+                            <li><a href="https://github.com/carbide" target="_blank" class="nav-item">
+                                <span class="nav-icon">🔗</span> GitHub
+                            </a></li>
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Hero Section (shown on home page) -->
+                <div id="hero" class="hero">
+                    <div class="hero-content">
+                        <h1 class="hero-title">Carbide Network</h1>
+                        <p class="hero-subtitle">Decentralized Storage Marketplace</p>
+                        <p class="hero-description">
+                            Build and integrate with the decentralized storage network.
+                            Earn rewards by contributing storage or integrate affordable,
+                            secure storage into your applications.
+                        </p>
+                        <div class="hero-buttons">
+                            <button onclick="loadDoc('PROVIDER_NODE')" class="btn btn-primary">
+                                💰 Become a Provider
+                            </button>
+                            <button onclick="loadDoc('IOS_SDK')" class="btn btn-secondary">
+                                📱 Integrate iOS SDK
+                            </button>
+                            <button onclick="loadDoc('DISCOVERY_SERVICE')" class="btn btn-secondary">
+                                🌐 Deploy Service
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Feature Cards -->
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🔐</div>
+                            <h3>Client-Side Encryption</h3>
+                            <p>AES-256-GCM encryption with secure keychain storage</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">⚡</div>
+                            <h3>High Performance</h3>
+                            <p>Built with Rust for maximum speed and reliability</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🌍</div>
+                            <h3>Global Network</h3>
+                            <p>Decentralized providers across multiple regions</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">💎</div>
+                            <h3>Custom Replication</h3>
+                            <p>User-defined replication factors and pricing tiers</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Start -->
+                    <div class="quick-start">
+                        <h2>Quick Start</h2>
+                        <div class="code-block-wrapper">
+                            <div class="code-block-header">
+                                <span>Swift</span>
+                                <button onclick="copyCode(this)" class="copy-btn">Copy</button>
+                            </div>
+                            <pre><code class="language-swift">import CarbideSDK
+
+// Initialize the client
+let client = CarbideClient()
+
+// Upload a file with encryption
+let result = try await client.uploadFile(
+    from: fileURL,
+    preferredRegion: .northAmerica,
+    encrypt: true
+)
+
+print("File ID: \(result.fileID)")</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentation Content (loaded dynamically) -->
+                <article id="doc-content" class="doc-content" style="display: none;">
+                    <!-- Markdown content will be loaded here -->
+                </article>
+
+                <!-- Table of Contents -->
+                <aside id="toc" class="toc" style="display: none;">
+                    <div class="toc-content">
+                        <h4 class="toc-title">On This Page</h4>
+                        <nav id="toc-nav" class="toc-nav">
+                            <!-- TOC will be generated dynamically -->
+                        </nav>
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Carbide Network</h4>
+                <p>Decentralized storage marketplace for everyone</p>
+            </div>
+            <div class="footer-section">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="#" onclick="loadDoc('OVERVIEW'); return false;">Overview</a></li>
+                    <li><a href="#" onclick="loadDoc('PROVIDER_NODE'); return false;">Provider Node</a></li>
+                    <li><a href="#" onclick="loadDoc('IOS_SDK'); return false;">iOS SDK</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Community</h4>
+                <ul>
+                    <li><a href="https://github.com/carbide" target="_blank">GitHub</a></li>
+                    <li><a href="#">Discord</a></li>
+                    <li><a href="mailto:support@carbide.network">Support</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">MIT License</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>Built with ❤️ by the Carbide Team</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+</body>
+</html>

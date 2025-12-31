@@ -228,42 +228,9 @@ All Carbide Network components are released under the MIT License.
 
 ---
 
-## Documentation Website
-
-### 🌐 Live Documentation Site
-
-This repository includes a complete, production-ready documentation website!
-
-**Quick Start**:
-```bash
-cd website
-./serve.sh
-```
-
-Then open http://localhost:8000
-
-**Deploy**:
-- [📖 Complete Setup Guide](./WEBSITE_SETUP.md)
-- Deploy to Netlify in 2 minutes
-- Deploy to Vercel, GitHub Pages, or Cloudflare Pages
-- Custom domain support
-
-**Features**:
-- Modern, responsive design with dark mode
-- Syntax-highlighted code blocks
-- Auto-generated table of contents
-- Search functionality
-- Mobile-friendly navigation
-- Fast loading (<2s)
-
-[🚀 Deploy Your Documentation Website](./WEBSITE_SETUP.md)
-
----
-
 **Ready to get started?** Choose your path:
 - 💰 [Become a storage provider](./PROVIDER_NODE.md)
 - 📱 [Integrate the iOS SDK](./IOS_SDK.md)
 - 🌐 [Deploy a discovery service](./DISCOVERY_SERVICE.md)
-- 📚 [Host the documentation website](./WEBSITE_SETUP.md)
 
 **Built with ❤️ by the Carbide Team**
