@@ -81,7 +81,7 @@ PRETTY_PRINT=true                # Pretty logs in development
 
 ## API Reference
 
-Base URL: `http://localhost:9090/api/v1`
+Base URL: `https://discovery.carbidenetwork.xyz/api/v1`
 
 ### Provider Management
 
@@ -546,7 +546,7 @@ Using autocannon:
 npm install -g autocannon
 
 # Test provider registration
-autocannon -c 100 -d 30 http://localhost:9090/api/v1/providers
+autocannon -c 100 -d 30 https://discovery.carbidenetwork.xyz/api/v1/providers
 ```
 
 ## Security

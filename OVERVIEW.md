@@ -254,7 +254,7 @@ For detailed development guides, see:
 
 ### Discovery Service API
 
-Base URL: `http://localhost:9090/api/v1`
+Base URL: `https://discovery.carbidenetwork.xyz/api/v1`
 
 **Provider Management**:
 - `POST /api/v1/providers` - Register a provider
@@ -273,7 +273,7 @@ Base URL: `http://localhost:9090/api/v1`
 
 ### Provider Node API
 
-Base URL: `http://localhost:8080/api/v1`
+Base URL: `https://provider.example.carbidenetwork.xyz/api/v1`
 
 **File Operations**:
 - `POST /api/v1/files/upload` - Upload a file

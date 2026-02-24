@@ -166,7 +166,7 @@ npm run dev
 ## API Reference
 
 ### Discovery Service API
-- **Base URL**: `http://localhost:9090/api/v1`
+- **Base URL**: `https://discovery.carbidenetwork.xyz/api/v1`
 - **Provider Management**: Register, list, update, remove providers
 - **Marketplace**: Search, quotes, statistics
 - **Health**: Service health checks
@@ -174,7 +174,7 @@ npm run dev
 [📖 Complete API reference →](./DISCOVERY_SERVICE.md#api-reference)
 
 ### Provider Node API
-- **Base URL**: `http://localhost:8080/api/v1`
+- **Base URL**: `https://provider.example.carbidenetwork.xyz/api/v1`
 - **File Operations**: Upload, download, delete files
 - **Provider Info**: Statistics, health, configuration
 
