@@ -25,13 +25,14 @@
 
 ### Current Status
 
-The Carbide Network v1.0.0 has successfully implemented:
+The Carbide Network v1.1.0 has successfully implemented:
 - ✅ Fully functional storage provider nodes
 - ✅ Desktop GUI application for provider management
 - ✅ Discovery service with health monitoring
-- ✅ iOS SDK for client applications
-- ✅ macOS client applications (Carbide and CarbideDrive)
+- ✅ Production-ready iOS SDK (v1.1.0) with retry logic and configurable timeouts
+- ✅ macOS client applications (Carbide and CarbideDrive) on mainnet
 - ✅ Basic reputation system
+- ✅ Automatic provider failover in client applications
 - ⏳ Blockchain integration (planned for Phase 3)
 
 ## Architecture Overview
@@ -111,7 +112,7 @@ The discovery service acts as the matchmaker between storage providers and consu
 - Fastify web framework
 - TypeScript for type safety
 - Zod for runtime validation
-- In-memory storage (Redis migration path)
+- SQLite persistence (WAL mode)
 
 ### 3. carbide-ios-sdk
 **Language**: Swift
@@ -150,7 +151,7 @@ A modern, Google Drive-inspired interface for managing files in the Carbide Netw
 **Technologies**:
 - SwiftUI for declarative UI
 - SwiftData for persistence
-- iOS 17.0+ / macOS 13.0+
+- iOS 18.1+ / macOS 13.0+
 
 ### 5. CarbideDrive
 **Language**: Swift (SwiftUI)
@@ -170,7 +171,7 @@ A native macOS application for seamless cloud storage synchronization.
 - SwiftUI for native macOS UI
 - SwiftData for metadata storage
 - Combine for reactive programming
-- REST API integration
+- CarbideSDK integration
 
 ## Quick Start
 

@@ -190,16 +190,18 @@ npm run dev
 | Carbide | Swift | SwiftUI, SwiftData |
 | CarbideDrive | Swift | SwiftUI, Combine |
 
-## Current Status (v1.0.0)
+## Current Status (v1.1.0)
 
 - ✅ Provider nodes with desktop GUI
 - ✅ Discovery service with health monitoring
-- ✅ iOS SDK with encryption support
-- ✅ macOS client applications
+- ✅ iOS SDK with encryption, retry logic, and configurable timeouts
+- ✅ macOS client applications (Carbide and CarbideDrive)
+- ✅ Production-ready CarbideSDK (v1.1.0)
 - ✅ Basic reputation system
+- ✅ Automatic provider failover in clients
+- ⏳ BLAKE3 hashing support (v1.2)
+- ⏳ Multi-provider replication (v1.3)
 - ⏳ Blockchain integration (Phase 3)
-- ⏳ BLAKE3 hashing support (v1.1)
-- ⏳ Multi-provider replication (v1.2)
 
 ## Contributing
 
