@@ -1,48 +1,53 @@
 # Carbide Client Applications - Developer Guide
 
 This guide covers the two main client applications in the Carbide ecosystem:
-1. **Carbide**: Premium iOS/macOS file management application
+1. **Carbide**: iOS/macOS file management application
 2. **CarbideDrive**: macOS desktop synchronization client
 
-## Carbide - Premium File Management
+Both applications use **CarbideSDK** for all network operations with the Carbide decentralized storage network.
+
+## Carbide - File Management
 
 ### Overview
 
-Carbide is a premium mobile and desktop experience that combines the best features of modern cloud storage with the Carbide Network. It provides a sleek, modern interface inspired by Google Drive for managing files, monitoring storage, and collaborating.
+Carbide is a mobile and desktop file management experience that combines modern cloud storage UI with the Carbide decentralized network. It provides a Google Drive-inspired interface for managing files, monitoring storage, and uploading/downloading with end-to-end encryption.
 
 ### Technology Stack
 
-- **Framework**: SwiftUI
-- **Data Persistence**: SwiftData
-- **Platform**: iOS 17.0+ / macOS 13.0+
-- **Language**: Swift 5.9+
-- **Design**: Material Design principles
+| Component | Technology |
+|-----------|-----------|
+| Framework | SwiftUI |
+| Data Persistence | SwiftData |
+| Network | CarbideSDK |
+| Platform | iOS 18.1+ / macOS 13.0+ |
+| Language | Swift 5.9+ |
 
 ### Features
 
-- **Intelligent Storage Dashboard**: Real-time visualization of storage usage
-- **Full CRUD Support**: Create, rename, and delete files and folders
-- **Smart Categorization**: Quick-access filters (Images, Videos, Documents, Audio)
-- **SwiftData Persistence**: Instant syncing across the app
-- **Premium Aesthetics**: Google-inspired color palettes and glassmorphism
+- **Storage Dashboard**: Real-time visualization of storage usage across categories
+- **File Management**: Upload, rename, delete, star, and share files
+- **Smart Categorization**: Quick-access filters (Images, Documents, etc.)
+- **Provider Integration**: Automatic provider discovery and selection via CarbideSDK
+- **Client-Side Encryption**: Optional AES-256-GCM encryption before upload
+- **SwiftData Persistence**: Local metadata synced with CarbideSDK operations
 
 ### Project Structure
 
 ```
 Carbide/
 ├── Carbide/
-│   ├── CarbideApp.swift           # App entry point
-│   ├── ContentView.swift          # Main navigation
-│   ├── HomeView.swift             # Home dashboard
-│   ├── FilesView.swift            # File browser
-│   ├── FileDetailView.swift       # File details
-│   ├── SharedView.swift           # Shared files
-│   ├── SettingsView.swift         # App settings
-│   ├── FileItem.swift             # Data model
-│   ├── StorageManager.swift       # Storage logic
-│   ├── Theme.swift                # Design system
-│   ├── FileComponents.swift       # Reusable UI components
-│   └── StorageHeaderView.swift    # Storage visualization
+│   ├── CarbideApp.swift           # App entry point with SwiftData container
+│   ├── ContentView.swift          # Tab-based navigation (Home, Files, Shared, Settings)
+│   ├── HomeView.swift             # Dashboard with storage header and recent files
+│   ├── FilesView.swift            # File browser with list/grid view, upload, rename, delete
+│   ├── FileDetailView.swift       # File metadata display and actions
+│   ├── SharedView.swift           # Shared files list
+│   ├── SettingsView.swift         # User profile, storage info, preferences
+│   ├── FileItem.swift             # SwiftData @Model with Carbide metadata fields
+│   ├── StorageManager.swift       # CarbideSDK wrapper for network operations
+│   ├── Theme.swift                # Design system (colors, typography, shapes)
+│   ├── FileComponents.swift       # FileCardView and FolderRowView UI components
+│   └── StorageHeaderView.swift    # Storage usage progress bar and breakdown
 ├── CarbideTests/
 └── CarbideUITests/
 ```
@@ -51,244 +56,131 @@ Carbide/
 
 #### Prerequisites
 
-- Xcode 15.0+
-- macOS 13.0+ or iOS 17.0+
+- Xcode 16.0+
+- iOS 18.1+ or macOS 13.0+
 - Swift 5.9+
+- CarbideSDK (local package at `../carbide-ios-sdk`)
 
 #### Setup
 
-1. **Clone the Repository**:
-   ```bash
-   git clone <carbide-repo>
-   cd Carbide
-   ```
-
-2. **Open in Xcode**:
-   ```bash
-   open Carbide.xcodeproj
-   ```
-
-3. **Select Target Device**:
-   - iOS Simulator or Mac from scheme selector
-
-4. **Build and Run**:
-   - Press ⌘R or click Run
-   - App will seed with demo data on first launch
+1. Clone the repository and ensure `carbide-ios-sdk` is in the sibling directory
+2. Open `Carbide.xcodeproj` in Xcode
+3. Select target device (iOS Simulator or Mac)
+4. Build and Run (Cmd + R)
 
 ### Key Components
 
-#### CarbideApp.swift
+#### StorageManager
 
-Main app entry point:
+The `StorageManager` bridges the app UI to CarbideSDK:
 
 ```swift
-@main
-struct CarbideApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-        .modelContainer(for: FileItem.self)
+import CarbideSDK
+
+@MainActor
+class StorageManager: ObservableObject {
+    @Published var isUploading = false
+    @Published var uploadProgress: Double = 0.0
+
+    private let client: CarbideClient
+
+    init() {
+        let discoveryURL = URL(string: "https://discovery.carbidenetwork.xyz")!
+        self.client = CarbideClient(discoveryServiceURL: discoveryURL)
+    }
+
+    func uploadFile(from fileURL: URL, encrypt: Bool = true) async throws -> UploadResult {
+        isUploading = true
+        defer { isUploading = false }
+
+        return try await client.uploadFile(
+            from: fileURL,
+            preferredRegion: .northAmerica,
+            encrypt: encrypt,
+            progress: { [weak self] progress in
+                Task { @MainActor in
+                    self?.uploadProgress = progress
+                }
+            }
+        )
+    }
+
+    func downloadFile(fileID: String, provider: Provider) async throws -> Data {
+        try await client.downloadFile(fileID: fileID, from: provider)
     }
 }
 ```
 
 #### FileItem Model
 
-SwiftData model for file storage:
+SwiftData model with Carbide-specific fields:
 
 ```swift
 @Model
 class FileItem {
     var id: UUID
     var name: String
-    var size: Int64
-    var type: FileType
+    var fileSize: Int64
+    var fileType: String
     var createdAt: Date
     var modifiedAt: Date
     var isShared: Bool
     var isFavorite: Bool
 
-    init(name: String, size: Int64, type: FileType) {
-        self.id = UUID()
-        self.name = name
-        self.size = size
-        self.type = type
-        self.createdAt = Date()
-        self.modifiedAt = Date()
-        self.isShared = false
-        self.isFavorite = false
-    }
-}
-
-enum FileType: String, Codable {
-    case image
-    case video
-    case document
-    case audio
-    case other
+    // Carbide Network fields
+    var carbideFileID: String?
+    var providerID: String?
+    var providerEndpoint: String?
+    var isEncrypted: Bool
 }
 ```
 
-#### Theme System
-
-Consistent design system:
-
-```swift
-struct CarbideTheme {
-    // Primary Colors
-    static let primary = Color(hex: "1A73E8")
-    static let secondary = Color(hex: "34A853")
-
-    // Storage Colors
-    static let driveColor = Color(hex: "4285F4")
-    static let gmailColor = Color(hex: "EA4335")
-    static let photosColor = Color(hex: "FBBC04")
-
-    // Typography
-    static let titleFont = Font.system(.largeTitle, design: .rounded)
-    static let headlineFont = Font.system(.headline, design: .rounded)
-    static let bodyFont = Font.system(.body, design: .default)
-
-    // Effects
-    static func glassMorphism() -> some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.ultraThinMaterial)
-            .shadow(color: .black.opacity(0.1), radius: 10)
-    }
-}
-```
-
-### Integrating with Carbide Network
-
-To connect Carbide with the Carbide Network using the iOS SDK:
-
-1. **Add SDK Dependency**:
-   ```swift
-   dependencies: [
-       .package(url: "https://github.com/carbide/carbide-ios-sdk", from: "1.0.0")
-   ]
-   ```
-
-2. **Create Storage Service**:
-   ```swift
-   import CarbideSDK
-
-   @Observable
-   class CarbideStorageService {
-       let client: CarbideClient
-
-       init() {
-           client = CarbideClient(
-               discoveryServiceURL: URL(string: "https://discovery.carbide.network")!
-           )
-       }
-
-       func uploadFile(_ item: FileItem, data: Data) async throws -> String {
-           // Save to temporary file
-           let tempURL = FileManager.default.temporaryDirectory
-               .appendingPathComponent(item.id.uuidString)
-
-           try data.write(to: tempURL)
-
-           // Upload to network
-           let result = try await client.uploadFile(
-               from: tempURL,
-               preferredRegion: .northAmerica,
-               encrypt: true
-           )
-
-           // Clean up
-           try? FileManager.default.removeItem(at: tempURL)
-
-           return result.fileID
-       }
-
-       func downloadFile(fileID: String, provider: Provider) async throws -> Data {
-           return try await client.downloadFile(
-               fileID: fileID,
-               from: provider
-           )
-       }
-   }
-   ```
-
-3. **Inject into Views**:
-   ```swift
-   @main
-   struct CarbideApp: App {
-       @State private var storageService = CarbideStorageService()
-
-       var body: some Scene {
-           WindowGroup {
-               ContentView()
-                   .environment(storageService)
-           }
-           .modelContainer(for: FileItem.self)
-       }
-   }
-   ```
-
-### Customization
-
-#### Changing Theme Colors
-
-Edit `Theme.swift`:
-
-```swift
-static let primary = Color(hex: "YOUR_COLOR")
-static let secondary = Color(hex: "YOUR_COLOR")
-```
-
-#### Adding New File Types
-
-1. Update `FileType` enum
-2. Add icon mapping in `FileComponents.swift`
-3. Update filters in `FilesView.swift`
+---
 
 ## CarbideDrive - Desktop Synchronization
 
 ### Overview
 
-CarbideDrive is a premium macOS cloud storage client that provides seamless file synchronization across the Carbide Network. It offers a native macOS experience with real-time sync and beautiful Material 3-inspired design.
+CarbideDrive is a macOS cloud storage client that provides seamless file synchronization across the Carbide decentralized network. It monitors local file changes in real-time and automatically syncs them to selected Carbide providers with configurable encryption.
 
 ### Technology Stack
 
-- **Framework**: SwiftUI
-- **Data Persistence**: SwiftData
-- **Reactive Programming**: Combine
-- **Platform**: macOS 14.0+
-- **API Integration**: REST
+| Component | Technology |
+|-----------|-----------|
+| Framework | SwiftUI |
+| Data Persistence | SwiftData |
+| Reactive Programming | Combine |
+| Network | CarbideSDK |
+| Platform | macOS 14.0+ |
 
 ### Features
 
-- **Real-time Sync**: Automatic background folder synchronization
-- **Flexible Views**: Grid and List views with dynamic icons
-- **Smart File Browser**: Real-time status indicators
-- **Premium Branding**: Carbide Network status with environment badges
-- **Customizable Settings**: Sync intervals and provider configuration
-- **Native Experience**: Pure SwiftUI for smooth macOS feel
+- **Real-time Sync**: File system monitoring via FSEvents with automatic upload on change
+- **Provider Discovery**: Automatic provider selection based on region, tier, price, reputation
+- **Provider Failover**: Automatic re-discovery when a provider becomes unavailable
+- **AES-256-GCM Encryption**: Optional client-side encryption with macOS Keychain storage
+- **Conflict Resolution**: Timestamp-based detection for local vs remote changes
+- **Flexible Views**: Grid and List views with search, filtering, and sorting
+- **Configurable Settings**: Sync interval, provider preferences, encryption toggle
 
 ### Project Structure
 
 ```
 CarbideDrive/
 ├── CarbideDrive/
-│   ├── CarbideDriveApp.swift      # App entry point
-│   ├── ContentView.swift          # Main interface
-│   ├── Models/
-│   │   ├── FileItem.swift         # File model
-│   │   └── SyncSettings.swift     # Settings model
-│   ├── Services/
-│   │   ├── SyncService.swift      # Sync logic
-│   │   └── CloudStorageService.swift  # API client
-│   ├── Views/
-│   │   ├── FileListView.swift     # File browser
-│   │   ├── SettingsView.swift     # Settings panel
-│   │   └── StatusBar.swift        # Status indicator
-│   └── Utilities/
-│       └── FileMonitor.swift      # File system monitoring
-└── Assets.xcassets/
+│   ├── CarbideDriveApp.swift      # App entry point with SwiftData container
+│   ├── ContentView.swift           # Root view with default settings seeding
+│   ├── FileBrowserView.swift       # Main UI: sidebar, file grid/list, status bar, detail panel
+│   ├── FileSyncManager.swift       # Core sync engine: provider discovery, upload, download, failover
+│   ├── FileSystemMonitor.swift     # DispatchSource-based file system monitoring (kqueue/FSEvents)
+│   ├── SyncedFile.swift            # SwiftData model: file metadata, sync status, paths
+│   ├── SyncSettings.swift          # SwiftData model: discovery URL, provider prefs, encryption
+│   ├── SettingsView.swift          # Two-tab settings: General (sync) and Account (Carbide config)
+│   ├── AddFolderView.swift         # NSOpenPanel folder picker with recursive enumeration
+│   ├── DummyData.swift             # Default settings seeding
+│   └── Theme.swift                 # Material Design 3 color tokens, typography, shapes
+├── CarbideDriveTests/
+└── CarbideDriveUITests/
 ```
 
 ### Installation
@@ -296,327 +188,234 @@ CarbideDrive/
 #### Prerequisites
 
 - macOS 14.0+
-- Xcode 15.1+
+- Xcode 16.0+
+- CarbideSDK (local package at `../carbide-ios-sdk`)
 
 #### Setup
 
-1. **Clone the Repository**:
-   ```bash
-   git clone <carbide-drive-repo>
-   cd CarbideDrive
-   ```
-
-2. **Open in Xcode**:
-   ```bash
-   open CarbideDrive.xcodeproj
-   ```
-
-3. **Build and Run**:
-   - Press ⌘R
-   - Configure sync folder and API endpoint in Settings
+1. Clone the repository and ensure `carbide-ios-sdk` is in the sibling directory
+2. Open `CarbideDrive.xcodeproj` in Xcode
+3. Build and Run (Cmd + R)
+4. Configure discovery service URL and provider preferences in Settings
 
 ### Configuration
 
-#### Settings Model
+#### SyncSettings Model
 
 ```swift
 @Model
-class SyncSettings {
-    var apiEndpoint: String
-    var accessToken: String
-    var syncInterval: TimeInterval
-    var syncFolderPath: String
+final class SyncSettings {
+    var syncFolderPath: String?
+    var autoSyncEnabled: Bool               // Default: true
+    var syncInterval: TimeInterval          // Default: 60s
 
-    init() {
-        self.apiEndpoint = "http://localhost:9090"
-        self.accessToken = ""
-        self.syncInterval = 300 // 5 minutes
-        self.syncFolderPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("CarbideDrive")
-            .path
-    }
+    // Carbide Network
+    var discoveryServiceURL: String?        // Default: "https://discovery.carbidenetwork.xyz"
+    var selectedProviderID: String?
+    var selectedProviderEndpoint: String?
+
+    // Provider Preferences
+    var maxPricePerGB: Double?              // Default: $0.10
+    var preferredRegion: String?
+    var preferredTier: String?              // Default: "Home"
+    var minReputation: Double?              // Default: 0.5
+
+    // Security
+    var encryptionEnabled: Bool             // Default: true
+
+    // Provider Cache
+    var lastProviderRefresh: Date?
+    var providerCacheValidMinutes: Int      // Default: 60
+    var isProviderCacheValid: Bool          // Computed property
 }
 ```
 
 #### User Configuration
 
-Access via Settings (⌘,):
+Access via Settings in the app:
 
-- **API Endpoint**: Carbide Network discovery service URL
-- **Access Token**: Authentication token
-- **Sync Interval**: Frequency of synchronization (seconds)
-- **Sync Folder**: Local folder to synchronize
+**General Tab**:
+- Auto sync toggle
+- Sync interval (seconds)
 
-### Sync Service
+**Account Tab**:
+- Discovery Service URL
+- Max price per GB/month
+- Preferred region (Any, North America, Europe, Asia, etc.)
+- Preferred tier (Home, Professional, Enterprise, Global CDN)
+- Minimum reputation threshold (0.0 - 1.0)
+- Encryption toggle (AES-256-GCM)
+- Current provider info with refresh button
 
-#### Real-time File Monitoring
+### Sync Architecture
+
+#### FileSyncManager
+
+The sync engine handles provider discovery, file upload/download, and automatic failover:
 
 ```swift
-import Combine
-import Foundation
-
-class SyncService: ObservableObject {
+@MainActor
+class FileSyncManager: ObservableObject {
     @Published var isSyncing = false
-    @Published var lastSyncDate: Date?
+    @Published var syncProgress: Double = 0.0
+    @Published var currentSyncFile: String?
+    @Published var syncError: String?
 
-    private let cloudService: CloudStorageService
-    private let fileMonitor: FileMonitor
-    private var syncTimer: Timer?
+    // Configures CarbideClient from SyncSettings
+    func configure(with settings: SyncSettings, modelContext: ModelContext) async
 
-    init(settings: SyncSettings) {
-        self.cloudService = CloudStorageService(
-            endpoint: settings.apiEndpoint,
-            token: settings.accessToken
-        )
-        self.fileMonitor = FileMonitor(path: settings.syncFolderPath)
+    // Discovers and caches a provider matching preferences
+    private func discoverAndSelectProvider() async
 
-        setupFileMonitoring()
-        startPeriodicSync(interval: settings.syncInterval)
-    }
+    // Syncs all tracked files
+    func syncAll() async
 
-    private func setupFileMonitoring() {
-        fileMonitor.onFileChange = { [weak self] url in
-            Task {
-                await self?.syncFile(at: url)
-            }
-        }
-    }
+    // Handles individual file sync with conflict detection
+    private func syncFile(_ file: SyncedFile, provider: Provider, client: CarbideClient) async
 
-    private func startPeriodicSync(interval: TimeInterval) {
-        syncTimer = Timer.scheduledTimer(
-            withTimeInterval: interval,
-            repeats: true
-        ) { [weak self] _ in
-            Task {
-                await self?.performFullSync()
-            }
-        }
-    }
-
-    func performFullSync() async {
-        isSyncing = true
-        defer { isSyncing = false }
-
-        do {
-            let localFiles = try fileMonitor.listFiles()
-            let remoteFiles = try await cloudService.listFiles()
-
-            // Sync logic here
-            for file in localFiles {
-                if !remoteFiles.contains(where: { $0.name == file.name }) {
-                    try await cloudService.uploadFile(file)
-                }
-            }
-
-            lastSyncDate = Date()
-        } catch {
-            print("Sync error: \(error)")
-        }
-    }
-
-    private func syncFile(at url: URL) async {
-        do {
-            try await cloudService.uploadFile(url)
-        } catch {
-            print("Upload error: \(error)")
-        }
-    }
+    // Automatic failover on provider errors
+    // Re-discovers provider on: providerRejected, insufficientCapacity, providerUnavailable
 }
 ```
 
-#### Cloud Storage Service
+#### Sync Flow
+
+1. **Configure**: Load settings, initialize `CarbideClient`, discover/cache provider
+2. **Monitor**: `FileSystemMonitor` detects local file changes via kqueue
+3. **Sync Decision**:
+   - No remote ID -> Upload (new file)
+   - Local deleted -> Download from cloud
+   - Local newer -> Re-upload + delete old version
+   - Already synced -> Skip
+4. **Upload**: Via CarbideSDK with optional encryption, progress tracking
+5. **Failover**: On provider errors, automatically discover new provider and retry
+
+#### FileSystemMonitor
+
+Real-time file monitoring using macOS kqueue events:
 
 ```swift
-class CloudStorageService {
-    private let endpoint: String
-    private let token: String
+class FileSystemMonitor: ObservableObject {
+    @Published var fileChanges: [String] = []
 
-    init(endpoint: String, token: String) {
-        self.endpoint = endpoint
-        self.token = token
-    }
-
-    func uploadFile(_ url: URL) async throws {
-        var request = URLRequest(url: URL(string: "\(endpoint)/api/v1/files/upload")!)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (_, response) = try await URLSession.shared.upload(
-            for: request,
-            fromFile: url
-        )
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-    }
-
-    func listFiles() async throws -> [FileMetadata] {
-        let url = URL(string: "\(endpoint)/api/v1/files")!
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try JSONDecoder().decode([FileMetadata].self, from: data)
-    }
+    func startMonitoring(path: String)  // Watch for write, delete, rename, revoke
+    func stopMonitoring(path: String)
+    func stopAll()
 }
 ```
 
-### User Interface
+### Data Models
 
-#### Main View with Status Bar
+#### SyncedFile
 
 ```swift
-struct ContentView: View {
-    @State private var syncService: SyncService
-    @State private var files: [FileItem] = []
-    @State private var viewMode: ViewMode = .grid
+@Model
+final class SyncedFile {
+    var id: UUID
+    var localPath: String
+    var remotePath: String          // Carbide file ID (content hash)
+    var fileName: String
+    var fileSize: Int64
+    var lastModified: Date
+    var lastSynced: Date?
+    var syncStatus: SyncStatus      // .synced, .syncing, .pending, .error, .conflict
+    var isDirectory: Bool
+    var parentPath: String?
+    var isStarred: Bool
+    var isDeleted: Bool
 
-    var body: some View {
-        NavigationSplitView {
-            VStack(spacing: 0) {
-                // Status Bar
-                StatusBarView(
-                    isSyncing: syncService.isSyncing,
-                    lastSync: syncService.lastSyncDate
-                )
+    var iconName: String            // SF Symbol based on file extension
+}
 
-                // File Browser
-                FileListView(
-                    files: files,
-                    viewMode: viewMode
-                )
-            }
-        } detail: {
-            Text("Select a file")
-                .foregroundStyle(.secondary)
-        }
-        .toolbar {
-            ToolbarItem {
-                Button {
-                    viewMode = viewMode == .grid ? .list : .grid
-                } label: {
-                    Image(systemName: viewMode == .grid ? "list.bullet" : "square.grid.2x2")
-                }
-            }
-        }
+enum SyncStatus: String, Codable {
+    case synced, syncing, pending, error, conflict
+}
+```
+
+### Design System
+
+CarbideDrive uses Material Design 3 tokens adapted for macOS:
+
+```swift
+struct Theme {
+    // Primary: Google Blue (#0B57D0)
+    static let primary = Color(hex: 0x0B57D0)
+
+    // Surfaces: Light mode with off-white backgrounds
+    static let surface = Color(hex: 0xFAFAFA)
+
+    // Typography: System font with tuned weights
+    struct Text {
+        static let title = Font.system(size: 20, weight: .medium)
+        static let bodyLarge = Font.system(size: 16, weight: .regular)
+        static let bodyMedium = Font.system(size: 14, weight: .regular)
+        static let labelSmall = Font.system(size: 12, weight: .regular)
+    }
+
+    // Shapes: Rounded corners
+    struct Shapes {
+        static let small = RoundedRectangle(cornerRadius: 8)
+        static let medium = RoundedRectangle(cornerRadius: 12)
+        static let large = RoundedRectangle(cornerRadius: 16)
     }
 }
-```
-
-### Design Philosophy
-
-#### Contrast over Borders
-
-Uses depth (shadows) and color blocks instead of harsh lines:
-
-```swift
-VStack {
-    // Content
-}
-.padding()
-.background(.ultraThinMaterial)
-.cornerRadius(12)
-.shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-```
-
-#### Micro-interactions
-
-Smooth transitions and spring animations:
-
-```swift
-.animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSyncing)
 ```
 
 ### Troubleshooting
 
 #### Sync Not Working
 
-1. Check API endpoint in Settings
-2. Verify access token is valid
-3. Check network connectivity
-4. Review logs in Console.app
+1. Check discovery service URL in Settings > Account
+2. Verify provider is selected (check "Current Provider" in Settings)
+3. Click "Refresh Provider" to force re-discovery
+4. Check network connectivity
 
-#### Files Not Appearing
+#### Provider Errors
 
-1. Verify sync folder path
-2. Check file permissions
-3. Ensure sync service is running
+- **No providers available**: Adjust region, tier, or price settings
+- **Provider rejected**: Automatic failover should find alternative; check settings
+- **Discovery service unavailable**: Verify the service URL is correct and reachable
+
+#### Files Not Syncing
+
+1. Verify auto-sync is enabled in Settings > General
+2. Check sync interval setting
+3. Ensure files are added via the "New" button
+4. Review sync status in the status bar at the bottom
 
 ## Development Best Practices
 
 ### Testing
 
-#### Unit Tests
-
 ```swift
 import XCTest
-@testable import Carbide
+@testable import CarbideDrive
 
-class FileItemTests: XCTestCase {
-    func testFileCreation() {
-        let file = FileItem(
-            name: "test.pdf",
-            size: 1024,
-            type: .document
-        )
-
-        XCTAssertEqual(file.name, "test.pdf")
-        XCTAssertEqual(file.size, 1024)
-        XCTAssertEqual(file.type, .document)
+class SyncSettingsTests: XCTestCase {
+    func testDefaultSettings() {
+        let settings = SyncSettings()
+        XCTAssertTrue(settings.autoSyncEnabled)
+        XCTAssertEqual(settings.syncInterval, 60.0)
+        XCTAssertTrue(settings.encryptionEnabled)
+        XCTAssertEqual(settings.discoveryServiceURL, "https://discovery.carbidenetwork.xyz")
     }
-}
-```
 
-#### UI Tests
+    func testProviderCacheValidity() {
+        let settings = SyncSettings()
+        XCTAssertFalse(settings.isProviderCacheValid)
 
-```swift
-import XCTest
-
-class CarbideUITests: XCTestCase {
-    func testFileUpload() {
-        let app = XCUIApplication()
-        app.launch()
-
-        app.buttons["Upload"].tap()
-        XCTAssertTrue(app.staticTexts["Uploading..."].exists)
+        settings.lastProviderRefresh = Date()
+        XCTAssertTrue(settings.isProviderCacheValid)
     }
 }
 ```
 
 ### Code Style
 
-Follow Swift API Design Guidelines:
-
-- Use clear, descriptive names
-- Prefer value types (struct) when possible
-- Use async/await for asynchronous operations
-- Document public APIs with doc comments
-
-### Performance Optimization
-
-#### Lazy Loading
-
-```swift
-LazyVStack {
-    ForEach(files) { file in
-        FileRowView(file: file)
-    }
-}
-```
-
-#### Image Caching
-
-```swift
-AsyncImage(url: thumbnailURL) { image in
-    image
-        .resizable()
-        .aspectRatio(contentMode: .fill)
-} placeholder: {
-    ProgressView()
-}
-```
+- Follow Swift API Design Guidelines
+- Use `@MainActor` for UI-related classes
+- Use `async/await` for all network operations
+- Document public APIs with Swift doc comments
 
 ## Contributing
 
