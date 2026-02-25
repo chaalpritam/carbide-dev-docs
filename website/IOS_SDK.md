@@ -2,16 +2,16 @@
 
 ## Overview
 
-The Carbide iOS SDK is a native Swift library for integrating iOS and macOS applications with the Carbide decentralized storage network. It provides a simple, async/await API for file operations with optional client-side encryption.
+The Carbide iOS SDK (`CarbideSDK`) is a production-ready Swift library for integrating iOS and macOS applications with the Carbide decentralized storage network. It provides a simple async/await API for file operations with client-side encryption, automatic retry logic, and configurable timeouts.
 
 ## Features
 
 - **Provider Discovery**: Find and select storage providers by region, tier, and price
-- **File Upload/Download**: Simple async/await API with progress tracking
-- **Optional Encryption**: AES-256-GCM client-side encryption
-- **Secure Key Storage**: Encryption keys stored in iOS Keychain
-- **Progress Tracking**: Monitor upload and download progress
-- **Zero Dependencies**: Built with native URLSession and CryptoKit
+- **File Upload/Download**: Async/await API with progress tracking
+- **Client-Side Encryption**: AES-256-GCM encryption with Keychain key storage
+- **Automatic Retry**: Exponential backoff for transient network failures (408, 429, 502-504)
+- **Configurable Timeouts**: Request and resource timeout configuration
+- **Zero Dependencies**: Built entirely with URLSession and CryptoKit
 - **SwiftUI Integration**: Examples and helpers for SwiftUI apps
 
 ## Requirements
@@ -28,12 +28,12 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/carbide/carbide-ios-sdk", from: "1.0.0")
+    .package(url: "https://github.com/carbide/carbide-ios-sdk", from: "1.1.0")
 ]
 ```
 
 Or in Xcode:
-1. File → Add Package Dependencies
+1. File > Add Package Dependencies
 2. Enter the repository URL
 3. Select version and add to your target
 
@@ -52,13 +52,22 @@ dependencies: [
 ```swift
 import CarbideSDK
 
-// Initialize with default localhost (development)
+// Initialize with production discovery service (default)
 let client = CarbideClient()
 
-// Or specify production discovery service
+// Or specify a custom discovery service endpoint
 let client = CarbideClient(
-    discoveryServiceURL: URL(string: "https://discovery.carbide.network")!
+    discoveryServiceURL: URL(string: "https://discovery.carbidenetwork.xyz")!
 )
+
+// With custom HTTP configuration
+let config = HTTPClientConfiguration(
+    requestTimeout: 60,
+    resourceTimeout: 600,
+    maxRetryAttempts: 5,
+    retryBaseDelay: 2.0
+)
+let client = CarbideClient(httpConfiguration: config)
 ```
 
 ### Upload a File
@@ -120,26 +129,30 @@ let data = try await client.downloadFile(
     }
 )
 
-// Save to disk
-let documentsURL = FileManager.default.urls(
-    for: .documentDirectory,
-    in: .userDomainMask
-)[0]
-let destinationURL = documentsURL.appendingPathComponent("downloaded.pdf")
-try data.write(to: destinationURL)
+// Or download directly to disk
+try await client.downloadFile(
+    fileID: fileID,
+    from: provider,
+    to: destinationURL
+)
 ```
 
 ## API Reference
 
 ### CarbideClient
 
-The main client for all Carbide operations.
+The main client for all Carbide operations. Implemented as a Swift `actor` for thread safety.
 
 #### Initialization
 
 ```swift
-init(discoveryServiceURL: URL = URL(string: "http://localhost:9090")!)
+public init(
+    discoveryServiceURL: URL = CarbideClient.defaultDiscoveryURL,
+    httpConfiguration: HTTPClientConfiguration = .default
+)
 ```
+
+**Default discovery URL**: `https://discovery.carbidenetwork.xyz`
 
 ### Provider Discovery
 
@@ -151,45 +164,24 @@ func listProviders() async throws -> [Provider]
 
 List all available providers in the network.
 
-**Example**:
-```swift
-let allProviders = try await client.listProviders()
-for provider in allProviders {
-    print("\(provider.name) - $\(provider.pricePerGBMonth)/GB/month")
-}
-```
-
 #### Search Providers
 
 ```swift
 func searchProviders(
     region: Region? = nil,
     tier: ProviderTier? = nil,
-    minReputation: Double = 0.0,
-    maxPricePerGB: Decimal? = nil,
-    limit: Int = 10
+    minReputation: Decimal? = nil,
+    limit: Int? = nil
 ) async throws -> [Provider]
 ```
 
 Search for providers matching specific criteria.
 
 **Parameters**:
-- `region`: Preferred geographic region
-- `tier`: Provider tier (home, professional, enterprise)
+- `region`: Preferred geographic region (`northAmerica`, `europe`, `asia`, `southAmerica`, `africa`, `oceania`)
+- `tier`: Provider tier (`home`, `professional`, `enterprise`, `globalCDN`)
 - `minReputation`: Minimum reputation score (0.0-1.0)
-- `maxPricePerGB`: Maximum price per GB/month
 - `limit`: Maximum number of results
-
-**Example**:
-```swift
-let providers = try await client.searchProviders(
-    region: .europe,
-    tier: .enterprise,
-    minReputation: 0.95,
-    maxPricePerGB: 0.01,
-    limit: 5
-)
-```
 
 #### Get Provider
 
@@ -208,7 +200,7 @@ Get detailed information about a specific provider.
 func uploadFile(
     from fileURL: URL,
     preferredRegion: Region? = nil,
-    preferredTier: ProviderTier? = nil,
+    preferredTier: ProviderTier? = .home,
     maxPricePerGB: Decimal? = nil,
     encrypt: Bool = false,
     progress: ((Double) -> Void)? = nil
@@ -223,31 +215,9 @@ func uploadFile(
 ) async throws -> UploadResult
 ```
 
-Upload a file to the network.
+Upload a file to the network. When encryption is enabled, the key is automatically stored in the Keychain.
 
-**Parameters**:
-- `fileURL`: Local file URL to upload
-- `provider`: Target provider (or auto-select)
-- `encrypt`: Enable client-side encryption
-- `progress`: Progress callback (0.0-1.0)
-
-**Returns**: `UploadResult` containing file ID and metadata
-
-**Example**:
-```swift
-let result = try await client.uploadFile(
-    from: fileURL,
-    preferredRegion: .asia,
-    encrypt: true,
-    progress: { progress in
-        DispatchQueue.main.async {
-            self.uploadProgress = progress
-        }
-    }
-)
-
-print("Uploaded: \(result.fileID)")
-```
+**Returns**: `UploadResult` containing file ID, size, provider info, and encryption key.
 
 #### Download File
 
@@ -258,28 +228,17 @@ func downloadFile(
     decryptionKey: Data? = nil,
     progress: ((Double) -> Void)? = nil
 ) async throws -> Data
+
+func downloadFile(
+    fileID: String,
+    from provider: Provider,
+    to destinationURL: URL,
+    decryptionKey: Data? = nil,
+    progress: ((Double) -> Void)? = nil
+) async throws
 ```
 
-Download a file from a provider.
-
-**Parameters**:
-- `fileID`: Unique file identifier
-- `provider`: Provider hosting the file
-- `decryptionKey`: Optional decryption key (auto-retrieved from keychain)
-- `progress`: Progress callback (0.0-1.0)
-
-**Returns**: File data
-
-**Example**:
-```swift
-let data = try await client.downloadFile(
-    fileID: "abc123",
-    from: provider,
-    progress: { progress in
-        print("Downloaded: \(Int(progress * 100))%")
-    }
-)
-```
+Download a file from a provider. If the file was encrypted, the decryption key is automatically retrieved from the Keychain unless explicitly provided.
 
 #### List Files
 
@@ -295,154 +254,42 @@ List all files stored on a specific provider.
 func deleteFile(
     fileID: String,
     from provider: Provider,
-    deleteKey: String
+    deleteKey: Bool = true
 ) async throws
 ```
 
-Delete a file from a provider.
+Delete a file from a provider. Optionally removes the associated encryption key from the Keychain.
 
 ### Encryption Utilities
 
-#### Generate Encryption Key
-
 ```swift
 static func generateEncryptionKey() -> Data
-```
-
-Generate a random AES-256 encryption key.
-
-**Example**:
-```swift
-let key = CarbideClient.generateEncryptionKey()
-```
-
-#### Encrypt File
-
-```swift
 static func encryptFile(data: Data, key: Data) throws -> Data
-```
-
-Encrypt data using AES-256-GCM.
-
-**Example**:
-```swift
-let fileData = try Data(contentsOf: fileURL)
-let encryptedData = try CarbideClient.encryptFile(data: fileData, key: key)
-```
-
-#### Decrypt File
-
-```swift
 static func decryptFile(data: Data, key: Data) throws -> Data
-```
-
-Decrypt data using AES-256-GCM.
-
-**Example**:
-```swift
-let decryptedData = try CarbideClient.decryptFile(data: encryptedData, key: key)
-```
-
-#### Derive Key from Password
-
-```swift
 static func deriveKey(from password: String, salt: Data) throws -> Data
-```
-
-Derive an encryption key from a password using PBKDF2.
-
-**Example**:
-```swift
-let salt = CarbideClient.generateSalt()
-let key = try CarbideClient.deriveKey(from: "mypassword", salt: salt)
-```
-
-#### Generate Salt
-
-```swift
 static func generateSalt() -> Data
 ```
 
-Generate a random salt for key derivation.
-
 ### Key Management
-
-#### Save Encryption Key
 
 ```swift
 static func saveEncryptionKey(_ key: Data, for fileID: String) throws
-```
-
-Save an encryption key to the iOS Keychain.
-
-**Example**:
-```swift
-try CarbideClient.saveEncryptionKey(key, for: result.fileID)
-```
-
-#### Get Encryption Key
-
-```swift
 static func getEncryptionKey(for fileID: String) throws -> Data
-```
-
-Retrieve an encryption key from the Keychain.
-
-**Example**:
-```swift
-let key = try CarbideClient.getEncryptionKey(for: fileID)
-```
-
-#### Delete Encryption Key
-
-```swift
 static func deleteEncryptionKey(for fileID: String) throws
-```
-
-Delete an encryption key from the Keychain.
-
-#### Check Key Exists
-
-```swift
 static func encryptionKeyExists(for fileID: String) -> Bool
 ```
 
-Check if an encryption key exists in the Keychain.
-
 ### Health Checks
 
-#### Check Discovery Health
-
 ```swift
-func checkDiscoveryHealth() async throws -> HealthStatus
+func checkDiscoveryHealth() async throws -> HealthResponse
+func checkProviderHealth(provider: Provider) async throws -> HealthResponse
 ```
-
-Check the health of the discovery service.
-
-#### Check Provider Health
-
-```swift
-func checkProviderHealth(provider: Provider) async throws -> HealthStatus
-```
-
-Check if a provider is online and healthy.
 
 ### Marketplace
 
-#### Get Marketplace Stats
-
 ```swift
 func getMarketplaceStats() async throws -> MarketplaceStats
-```
-
-Get real-time marketplace statistics.
-
-**Example**:
-```swift
-let stats = try await client.getMarketplaceStats()
-print("Total providers: \(stats.totalProviders)")
-print("Avg price: $\(stats.averagePricePerGB)/GB")
-print("Available capacity: \(stats.availableCapacityBytes) bytes")
 ```
 
 ## Data Models
@@ -450,72 +297,99 @@ print("Available capacity: \(stats.availableCapacityBytes) bytes")
 ### Provider
 
 ```swift
-struct Provider: Codable, Identifiable {
+struct Provider: Codable, Identifiable, Sendable {
     let id: String
     let name: String
     let tier: ProviderTier
     let region: Region
     let endpoint: String
     let availableCapacity: UInt64
+    let totalCapacity: UInt64
     let pricePerGBMonth: Decimal
     let reputation: ReputationScore
+    let lastSeen: Date
+    let metadata: [String: String]?
 }
 ```
 
 ### ProviderTier
 
 ```swift
-enum ProviderTier: String, Codable {
-    case home
-    case professional
-    case enterprise
+enum ProviderTier: String, Codable, Sendable, Hashable {
+    case home = "Home"
+    case professional = "Professional"
+    case enterprise = "Enterprise"
+    case globalCDN = "GlobalCDN"
+
+    var displayName: String  // Human-readable name
 }
 ```
 
 ### Region
 
 ```swift
-enum Region: String, Codable {
-    case northAmerica = "northamerica"
-    case southAmerica = "southamerica"
-    case europe
-    case asia
-    case africa
-    case oceania
+enum Region: String, Codable, Sendable, Hashable {
+    case northAmerica = "NorthAmerica"
+    case europe = "Europe"
+    case asia = "Asia"
+    case southAmerica = "SouthAmerica"
+    case africa = "Africa"
+    case oceania = "Oceania"
+
+    var displayName: String  // Human-readable name
 }
 ```
 
 ### UploadResult
 
 ```swift
-struct UploadResult {
+struct UploadResult: Sendable {
     let fileID: String
     let fileSize: UInt64
     let providerID: String
+    let providerEndpoint: String
     let encryptionKey: Data?
+    let uploadedAt: Date
 }
 ```
 
 ### ReputationScore
 
 ```swift
-struct ReputationScore: Codable {
-    let overall: Double          // 0.0-1.0
-    let uptime: Double
-    let dataIntegrity: Double
-    let responseTime: Double
+struct ReputationScore: Codable, Sendable {
+    let overall: Decimal
+    let uptime: Decimal
+    let dataIntegrity: Decimal
+    let responseTime: Decimal
+    let contractCompliance: Decimal
+    let communityFeedback: Decimal
+    let contractsCompleted: Int
+    let lastUpdated: Date
 }
 ```
 
 ### MarketplaceStats
 
 ```swift
-struct MarketplaceStats: Codable {
+struct MarketplaceStats: Codable, Sendable {
     let totalProviders: Int
-    let activeProviders: Int
+    let onlineProviders: Int
+    let totalCapacityBytes: UInt64
     let availableCapacityBytes: UInt64
     let averagePricePerGB: Decimal
-    let averageReputation: Double
+    let totalRequests: Int?
+    let lastUpdated: Date
+}
+```
+
+### HTTPClientConfiguration
+
+```swift
+struct HTTPClientConfiguration: Sendable {
+    var requestTimeout: TimeInterval     // Default: 30s
+    var resourceTimeout: TimeInterval    // Default: 300s
+    var maxRetryAttempts: Int            // Default: 3
+    var retryBaseDelay: TimeInterval     // Default: 1.0s
 }
 ```
 
@@ -524,36 +398,44 @@ struct MarketplaceStats: Codable {
 ### CarbideError
 
 ```swift
-enum CarbideError: LocalizedError {
-    case noProvidersAvailable
-    case providerRejected(reason: String)
-    case fileNotFound
-    case encryptionFailed(message: String)
-    case decryptionFailed(message: String)
-    case networkError(Error)
-    case invalidResponse
-    case keychainError(OSStatus)
+enum CarbideError: Error, LocalizedError, Sendable {
+    // Network
+    case networkError(String)
+    case invalidURL(String)
+    case requestFailed(statusCode: Int, message: String)
+    case timeout
+    case noInternetConnection
+    case rateLimited
 
-    var errorDescription: String? {
-        switch self {
-        case .noProvidersAvailable:
-            return "No providers available matching your criteria"
-        case .providerRejected(let reason):
-            return "Provider rejected upload: \(reason)"
-        case .fileNotFound:
-            return "File not found"
-        case .encryptionFailed(let message):
-            return "Encryption failed: \(message)"
-        case .decryptionFailed(let message):
-            return "Decryption failed: \(message)"
-        case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
-        case .invalidResponse:
-            return "Invalid server response"
-        case .keychainError(let status):
-            return "Keychain error: \(status)"
-        }
-    }
+    // Provider
+    case providerNotFound
+    case providerRejected(reason: String)
+    case insufficientCapacity
+    case providerUnavailable
+
+    // File
+    case fileNotFound
+    case fileReadError(String)
+    case fileTooLarge(maxSize: UInt64)
+    case invalidFileID
+    case uploadFailed(String)
+    case downloadFailed(String)
+
+    // Encryption
+    case encryptionFailed(String)
+    case decryptionFailed(String)
+    case invalidKey
+    case keychainError(String)
+
+    // Validation
+    case invalidResponse
+    case decodingError(String)
+    case encodingError(String)
+    case missingData(String)
+
+    // Discovery
+    case discoveryServiceUnavailable
+    case noProvidersAvailable
 }
 ```
 
@@ -565,12 +447,14 @@ do {
     print("Success: \(result.fileID)")
 } catch CarbideError.providerRejected(let reason) {
     print("Provider rejected: \(reason)")
-} catch CarbideError.fileNotFound {
-    print("File not found")
+} catch CarbideError.rateLimited {
+    print("Rate limited - retry later")
+} catch CarbideError.noInternetConnection {
+    print("No internet connection")
+} catch CarbideError.timeout {
+    print("Request timed out")
 } catch CarbideError.encryptionFailed(let message) {
     print("Encryption failed: \(message)")
-} catch CarbideError.networkError(let error) {
-    print("Network error: \(error)")
 } catch {
     print("Unexpected error: \(error.localizedDescription)")
 }
@@ -591,48 +475,26 @@ struct FileUploadView: View {
     @State private var uploadProgress: Double = 0.0
     @State private var isUploading = false
     @State private var uploadedFileID: String?
-    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 20) {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
                 Label("Select Photo", systemImage: "photo")
-                    .font(.headline)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
             }
             .onChange(of: selectedPhoto) { _, newValue in
                 Task { await uploadPhoto(newValue) }
             }
 
             if isUploading {
-                VStack(spacing: 10) {
-                    ProgressView(value: uploadProgress, total: 1.0)
-                    Text("\(Int(uploadProgress * 100))% uploaded")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                ProgressView(value: uploadProgress, total: 1.0)
+                Text("\(Int(uploadProgress * 100))% uploaded")
+                    .font(.caption)
             }
 
             if let fileID = uploadedFileID {
-                VStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.largeTitle)
-                        .foregroundColor(.green)
-                    Text("Upload successful!")
-                        .font(.headline)
-                    Text("File ID: \(fileID)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if let error = errorMessage {
-                Text(error)
-                    .foregroundColor(.red)
+                Text("Uploaded! File ID: \(fileID)")
                     .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding()
@@ -646,92 +508,28 @@ struct FileUploadView: View {
 
         isUploading = true
         uploadProgress = 0.0
-        errorMessage = nil
 
-        // Save to temporary file
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("jpg")
 
         do {
             try data.write(to: tempURL)
-
             let result = try await client.uploadFile(
                 from: tempURL,
                 preferredRegion: .northAmerica,
                 encrypt: true,
                 progress: { progress in
-                    Task { @MainActor in
-                        uploadProgress = progress
-                    }
+                    Task { @MainActor in uploadProgress = progress }
                 }
             )
-
             uploadedFileID = result.fileID
             try? FileManager.default.removeItem(at: tempURL)
         } catch {
-            errorMessage = error.localizedDescription
+            print("Upload failed: \(error)")
         }
 
         isUploading = false
-    }
-}
-```
-
-### Provider List View
-
-```swift
-struct ProviderListView: View {
-    @State private var client = CarbideClient()
-    @State private var providers: [Provider] = []
-    @State private var isLoading = false
-
-    var body: some View {
-        List {
-            ForEach(providers) { provider in
-                VStack(alignment: .leading) {
-                    Text(provider.name)
-                        .font(.headline)
-
-                    HStack {
-                        Label(provider.tier.rawValue, systemImage: "star.fill")
-                        Spacer()
-                        Text("$\(provider.pricePerGBMonth)/GB")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                    HStack {
-                        Text("Reputation: \(provider.reputation.overall, specifier: "%.2f")")
-                        Spacer()
-                        Text(provider.region.rawValue)
-                    }
-                    .font(.caption2)
-                }
-            }
-        }
-        .overlay {
-            if isLoading {
-                ProgressView()
-            }
-        }
-        .task {
-            await loadProviders()
-        }
-    }
-
-    func loadProviders() async {
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            providers = try await client.searchProviders(
-                minReputation: 0.8,
-                limit: 20
-            )
-        } catch {
-            print("Error loading providers: \(error)")
-        }
     }
 }
 ```
@@ -741,6 +539,7 @@ struct ProviderListView: View {
 ### Custom Progress Tracking
 
 ```swift
+@MainActor
 class UploadManager: ObservableObject {
     @Published var progress: Double = 0.0
     @Published var status: String = "Ready"
@@ -780,10 +579,7 @@ class UploadManager: ObservableObject {
 ### Batch Upload
 
 ```swift
-func uploadMultipleFiles(_ urls: [URL]) async throws -> [UploadResult] {
-    var results: [UploadResult] = []
-
-    // Find suitable provider
+func uploadMultipleFiles(_ urls: [URL], client: CarbideClient) async throws -> [UploadResult] {
     let providers = try await client.searchProviders(
         region: .northAmerica,
         tier: .professional,
@@ -794,7 +590,7 @@ func uploadMultipleFiles(_ urls: [URL]) async throws -> [UploadResult] {
         throw CarbideError.noProvidersAvailable
     }
 
-    // Upload files sequentially
+    var results: [UploadResult] = []
     for url in urls {
         let result = try await client.uploadFile(
             from: url,
@@ -808,35 +604,24 @@ func uploadMultipleFiles(_ urls: [URL]) async throws -> [UploadResult] {
 }
 ```
 
-## Known Limitations (v1.0)
+## Known Limitations
 
-- **SHA-256 vs BLAKE3**: Currently uses SHA-256 for hashing. BLAKE3 support coming in v1.1
-- **Single Provider**: Only uploads to one provider (no automatic replication)
-- **No Proof-of-Storage**: File integrity verification not yet implemented
-- **No Background Transfers**: Upload/download interrupted when app backgrounds
+- **SHA-256 vs BLAKE3**: Uses SHA-256 for file hashing; BLAKE3 support planned for v1.2
+- **Single Provider**: Uploads to one provider at a time (no automatic replication)
+- **No Background Transfers**: Upload/download interrupted when app is backgrounded
 
 ## Roadmap
 
 - [ ] BLAKE3 hash integration
 - [ ] Multi-provider replication
-- [ ] Automatic provider failover
 - [ ] Background upload/download support
 - [ ] Proof-of-storage verification
-- [ ] Quote aggregation
-- [ ] Payment integration
+- [ ] Quote aggregation from multiple providers
 
 ## Testing
 
-### Running Tests
-
 ```bash
 swift test
-```
-
-### Building Documentation
-
-```bash
-swift package generate-documentation
 ```
 
 ## Contributing
