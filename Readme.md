@@ -201,7 +201,7 @@ npm run dev
 - ✅ Automatic provider failover in clients
 - ⏳ BLAKE3 hashing support (v1.2)
 - ⏳ Multi-provider replication (v1.3)
-- ⏳ Blockchain integration (Phase 3)
+- 🔄 Solana integration: registry/escrow Anchor programs + USDC SPL escrow
 
 ## Contributing
 

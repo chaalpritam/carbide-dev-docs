@@ -33,7 +33,8 @@ The Carbide Network v1.1.0 has successfully implemented:
 - ✅ macOS client applications (Carbide and CarbideDrive) on mainnet
 - ✅ Basic reputation system
 - ✅ Automatic provider failover in client applications
-- ⏳ Blockchain integration (planned for Phase 3)
+- 🔄 Solana integration in progress: Anchor programs (carbide_registry,
+  carbide_escrow), USDC SPL payments, Ed25519 verifier attestations
 
 ## Architecture Overview
 
@@ -63,9 +64,9 @@ The Carbide Network v1.1.0 has successfully implemented:
     └────────────────────────────────────────────────────────────────┘
                                     │
     ┌────────────────────────────────────────────────────────────────┐
-    │             Blockchain Layer (Future)                          │
+    │                      Solana Layer                              │
     ├────────────────────────────────────────────────────────────────┤
-    │    Smart Contracts • Payments • Reputation • Governance        │
+    │  carbide_registry • carbide_escrow • USDC SPL • Verifier Sig   │
     └────────────────────────────────────────────────────────────────┘
 ```
 
