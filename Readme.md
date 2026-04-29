@@ -6,6 +6,35 @@ Welcome to the Carbide Network developer documentation! This comprehensive guide
 
 Carbide Network is a **decentralized storage marketplace** that connects storage providers with consumers. Anyone can contribute storage capacity and earn rewards, while users get affordable, secure, and customizable data storage with user-defined replication factors and pricing tiers.
 
+## Running the docs site
+
+This repo also hosts the developer-facing docs website (`/website`).
+
+### Locally
+
+```sh
+cd website
+./serve.sh        # python -m http.server-style local preview at :8000
+```
+
+Open <http://localhost:8000>.
+
+### In production
+
+The site is a static bundle, so any static host works. Two zero-config options:
+
+```sh
+# Netlify (drag-and-drop or CLI)
+netlify deploy --dir=website --prod
+
+# Vercel
+vercel --cwd website --prod
+```
+
+GitHub Pages, Cloudflare Pages, S3+CloudFront, or any CDN serving the
+`website/` directory will all work the same way. Custom domain instructions are
+in [`WEBSITE_SETUP.md`](./WEBSITE_SETUP.md).
+
 ## Documentation Structure
 
 This documentation is organized into the following sections:
